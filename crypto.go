@@ -14,36 +14,15 @@ func DeriveKey(passphrase string, salt []byte) []byte{
 	return argon2.IDKey([]byte(passphrase), salt, 1, 64*1024, 4, 32)
 }
 
-func EncryptData(plaintext []byte, passphrase string) ([]byte, []byte, []byte, error){
-
+func GenerateSalt() ([]byte, error){
 	salt := make([]byte, 16)
-	if _, err  := io.ReadFull(rand.Reader, salt); err != nil{
-		return nil, nil, nil, err
+	if _, err := io.ReadFull(rand.Reader, salt); err != nil{
+		return nil, err
 	}
-
-	key := DeriveKey(passphrase, salt)
-
-	block, err := aes.NewCipher(key)
-	if err != nil{
-		return nil, nil, nil, err
-	}
-
-	gcm, err := cipher.NewGCM(block)
-	if err != nil{
-		return nil, nil, nil, err
-	}
-
-	nonce := make([]byte, gcm.NonceSize())
-	if _, err  := io.ReadFull(rand.Reader, nonce); err != nil{
-		return nil, nil, nil, err
-	}
-
-	ciphertext := gcm.Seal(nil, nonce, plaintext, nil)
-
-	return salt, nonce, ciphertext, nil
+	return salt, nil
 }
 
-func DecryptData(salt, nonce, ciphertext []byte, passphrase string) ([]byte, error){
+func NewEncryptionBlock(passphrase string, salt []byte) (cipher.AEAD, error){
 	key := DeriveKey(passphrase, salt)
 
 	block, err := aes.NewCipher(key)
@@ -56,12 +35,7 @@ func DecryptData(salt, nonce, ciphertext []byte, passphrase string) ([]byte, err
 		return nil, err
 	}
 
-	plaintext, err := gcm.Open(nil, nonce, ciphertext, nil)
-	if err != nil{
-		return nil, err
-	}
-
-	return plaintext, nil
+	return gcm, nil
 }
 
 //Custom Header for Aegis Encryptions
